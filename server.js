@@ -1,24 +1,21 @@
 const express = require('express')
-const { webRouter } = require('./router/webRouter.js')
-const { engine } = require('express-handlebars')
-const bodyParser = require("body-parser")
 const { Server: HttpServer } = require('http')
-const { Server: SocketServer } = require('socket.io')
-
+const { Server: IOServer } = require('socket.io')
+const { socketController } = require('./controllers/controladoresSocket.js')
 
 const app = express()
 const httpServer = new HttpServer(app)
-const io = new SocketServer(httpServer)
-app.use(express.json())
-app.use(express.static('public'))
+const io = new IOServer(httpServer)
 
-app.engine('handlebars', engine())
-app.set('view engine', 'handlebars')
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(webRouter)
-io.on('connection', socket => eventoCnxController(socket, io))
+const { webRouter } = require('./router/webRouter.js')
+
+app.use(express.static('./public'))
+app.use('/', webRouter)
+
+io.on('connection', socket => socketController(socket, io))
+
 
 const PORT = 8080
-const server = app.listen(PORT, () => {
+const server = httpServer.listen(PORT, () => {
     console.log(`escuchando en el puerto ${server.address().port}`)
 })

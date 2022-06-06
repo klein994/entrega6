@@ -1,70 +1,70 @@
-const { databaseProductos } = require("../database/databaseProductos.js")
+const fs = require('fs');
 
-const controladoresApi = {
-    root: (req, res) => {
-        res.redirect('/api/productos');
-    },
-    getAll: (req, res) => {
-        res.json(databaseProductos.getAll())
-    },
-    create: (req, res) => {
-        console.log(req.body)
-        let obj = {
-            "tittle": req.body.tittle,
-            "price": req.body.price,
-            "thumbnail": req.body.thumbnail,
-            "id": databaseProductos.getAll().length + 1
+class ControladorApi {
+    constructor(nombreArchivo) {
+        this.nombreArchivo = nombreArchivo;
+    }
+    async save(producto) {
+        let contenido = await this.getAll();
+        producto.id = `${Date.now()}`;
+        contenido.push(producto);
+        await sobreescribrirArchivo(this.nombreArchivo, contenido);
+        return producto;
+    }
+    async updateById(id, producto) {
+        let contenido = await this.getAll();
+        let productoBuscado = contenido.find(producto => producto.id == id);
+        if (!productoBuscado) {
+            const error = new Error('No existe un producto con ese id')
+            error.tipo = 'Product not found'
+            throw error;
         }
-        async function guarda(obj) {
-
-            try {
-                let g = await databaseProductos.create(obj)
-                let response = await res.redirect('/index')
-            } catch (err) {
-                console.log(err)
-            }
-
-            return response
+        productoBuscado.title = producto.title;
+        productoBuscado.price = producto.price;
+        productoBuscado.thumbnail = producto.thumbnail;
+        await sobreescribrirArchivo(this.nombreArchivo, contenido);
+        return productoBuscado;
+    }
+    async getById(id) {
+        let contenido = await this.getAll();
+        let object_encontrado = contenido.find(producto => producto.id == id);
+        if (!object_encontrado) {
+            const error = new Error('No existe un producto con ese id')
+            error.tipo = 'Product not found'
+            throw error;
         }
-
-        guarda(obj)
-
-
-
-    },
-    random: (req, res) => {
-        res.json(databaseProductos.random())
-    },
-    getOne: (req, res) => {
-        let id = parseInt(req.params.id)
-        res.json(databaseProductos.getOne(id))
-    },
-    update: (req, res) => {
-        let id = parseInt(req.params.id)
-        let obj = {
-            "tittle": req.body.tittle,
-            "price": req.body.price,
-            "thumbnail": req.body.thumbnail,
-            "id": id
+        return object_encontrado;
+    }
+    async getAll() {
+        try {
+            let contenido = await fs.promises.readFile(this.nombreArchivo, 'utf-8');
+            return JSON.parse(contenido);
+        } catch (error) {
+            return [];
         }
-        res.json(databaseProductos.update(obj))
-    },
-    delete: (req, res) => {
-        let id = parseInt(req.params.id)
-
-        async function borrar(id) {
-            try {
-                let g = await databaseProductos.delete(id)
-                let response = await res.redirect('/index')
-            } catch (err) {
-                console.log(err)
-            }
-
-            return response
+    }
+    async deleteById(id) {
+        let contenido = await this.getAll();
+        let contenidoRestante;
+        contenidoRestante = contenido.filter(producto => producto.id != id);
+        if (contenidoRestante.length == contenido.length) {
+            const error = new Error('No existe un producto con ese id')
+            error.tipo = 'Product not found'
+            throw error;
         }
-
-        borrar(id)
+        await sobreescribrirArchivo(this.nombreArchivo, contenidoRestante);
+    }
+    async deleteAll() {
+        await sobreescribrirArchivo(this.nombreArchivo, []);
     }
 }
 
-module.exports = { controladoresApi }
+async function sobreescribrirArchivo(nombreArchivo, datos) {
+    try {
+        await fs.promises.writeFile(nombreArchivo, JSON.stringify(datos, null, 2));
+    } catch (error) {
+        throw new Error(`Error en escritura: ${error.message}`);
+    }
+}
+
+module.exports = { ControladorApi }
